@@ -28,9 +28,8 @@ public class Response {
         this.statusMessage = message;
     }
 
-    public void setContentType(String contentType) {
-        this.contentType = contentType;
-    }
+    public void setContentType(String contentType) { this.contentType = contentType; }
+    public String getContentType() { return contentType; }
 
     public void addHeader(String name, String value) {
         headerLines.add(name + ": " + value);

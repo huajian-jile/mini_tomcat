@@ -5,6 +5,20 @@
          version="4.0">
     <display-name>Mini Tomcat Web App</display-name>
 
+    <context-param>
+        <param-name>appName</param-name>
+        <param-value>Mini Tomcat Demo</param-value>
+    </context-param>
+
+    <filter>
+        <filter-name>charset</filter-name>
+        <filter-class>minitomcat.filter.CharsetFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>charset</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
     <welcome-file-list>
         <welcome-file>index.html</welcome-file>
         <welcome-file>index.htm</welcome-file>

@@ -50,13 +50,15 @@
 | Engine / Host / Context / Wrapper | ✅ 完整 | ✅ 有，层级与职责一致 |
 | Pipeline / Valve / BasicValve | ✅ 每层一条 Pipeline | ✅ 每层一个 BasicValve，逻辑等价 |
 | Request / Response | ✅ 完整（参数、属性、Cookie 等） | ✅ 有参数、属性、Cookie、Session 绑定 |
+| Request POST body 解析 | ✅ application/x-www-form-urlencoded | ✅ 已支持 |
 | Lifecycle（init/start/stop/destroy） | ✅ 全组件 | ✅ Server、Service、Connector |
 | 按 Host 头选 Host | ✅ | ✅ EngineValve 中实现 |
 | docBase、静态资源、welcome-file | ✅ | ✅ Context + DefaultServlet |
-| web.xml（servlet / mapping / welcome-file） | ✅ 完整解析 | ✅ 简单解析（servlet、servlet-mapping、welcome-file-list） |
+| web.xml | ✅ 完整解析 | ✅ servlet、servlet-mapping、filter、filter-mapping、welcome-file-list、context-param、init-param |
 | Session（HttpSession、JSESSIONID） | ✅ | ✅ SessionManager + Request.getSession() |
+| Filter（FilterChain） | ✅ | ✅ Filter、FilterChain、FilterConfig、FilterDef |
 | JSP（Jasper） | ✅ 编译与执行 | ⚠️ 仅占位类，不编译不执行 |
-| Filter / Listener / 集群 / JNDI 等 | ✅ | ❌ 未实现 |
+| Listener / 集群 / JNDI 等 | ✅ | ❌ 未实现 |
 
 ### 2.2 请求处理流程（本项目）
 
@@ -101,8 +103,8 @@
 | **PipelineBase.java** | Pipeline 的默认实现；持有一个 BasicValve，invoke 时直接调用该 Valve。 | StandardPipeline 等 |
 | **Engine.java** | 引擎；持有一个 Pipeline（BasicValve 为 **EngineValve**）；管理多个 Host；EngineValve 按 **Host** 头选 Host 并调用其 invoke。 | org.apache.catalina.Engine |
 | **Host.java** | 虚拟主机；持有一个 Pipeline（BasicValve 为 **HostValve**）；管理多个 Context；HostValve 按 URI 选 Context，设置 `request.setContext()`、`setContextPath()` 后调用 Context.invoke。 | org.apache.catalina.Host |
-| **Context.java** | Web 应用；持有一个 Pipeline（BasicValve 为 **ContextValve**）；**docBase**、**welcomeFiles**、**SessionManager**；`getResourceAsStream(path)`、`resourceExists(path)` 从 docBase 读资源；ContextValve 处理 welcome-file、按路径选 Wrapper、设置 `servletPath`。 | org.apache.catalina.core.StandardContext |
-| **Wrapper.java** | 最底层容器；持有一个 Pipeline（BasicValve 为 **WrapperValve**）；管理单个 **Servlet**、urlPattern；WrapperValve 调用 `servlet.service(request, response)`。 | org.apache.catalina.Wrapper / StandardWrapper |
+| **Context.java** | Web 应用；持有一个 Pipeline（BasicValve 为 **ContextValve**）；**docBase**、**welcomeFiles**、**SessionManager**、**filterDefs**、**contextParams**；`getResourceAsStream(path)`、`resourceExists(path)`；ContextValve 处理 welcome-file、按路径选 Wrapper、构建 **FilterChain**（匹配的 Filter + Servlet）并调用 chain.doFilter。 | org.apache.catalina.core.StandardContext |
+| **Wrapper.java** | 最底层容器；持有一个 Pipeline（BasicValve 为 **WrapperValve**）；管理单个 **Servlet**、urlPattern、**initParams**（来自 web.xml init-param）；WrapperValve 调用 `servlet.service(request, response)`。 | org.apache.catalina.Wrapper / StandardWrapper |
 
 ---
 
@@ -110,14 +112,25 @@
 
 | 文件 | 作用 | 对应 Tomcat |
 |------|------|-------------|
-| **Request.java** | 封装 HTTP 请求：解析请求行、请求头、**query 参数**；**Cookie**（getCookieValue）；**attributes**；**contextPath/servletPath**（由各层 Valve 设置）；**getSession()**（依赖 Context 的 SessionManager，无则创建并写 JSESSIONID Cookie）。 | Request / Coyote Request |
+| **Request.java** | 封装 HTTP 请求：解析请求行、请求头、**query 参数**、**POST body**（application/x-www-form-urlencoded）；**Cookie**（getCookieValue）；**attributes**；**contextPath/servletPath**；**getSession()**。 | Request / Coyote Request |
 | **Response.java** | 封装 HTTP 响应：status、**Content-Type**、**addHeader**、**addCookie**（Set-Cookie）；**setBody**；**flush()** 写回状态行、头、体。 | Response / Coyote Response |
 | **HttpSession.java** | 会话对象：id、creationTime、**getAttribute/setAttribute/removeAttribute**、invalidate。 | HttpSession |
 | **SessionManager.java** | 会话管理：**createSession()**、**getSession(id)**；内存存储；Cookie 名 JSESSIONID。 | Manager / Session 管理器 |
 
 ---
 
-### 3.6 包：`minitomcat.servlet`
+### 3.6 包：`minitomcat.filter`
+
+| 文件 | 作用 | 对应 Tomcat |
+|------|------|-------------|
+| **Filter.java** | 过滤器接口：`doFilter(request, response, chain)`。 | javax.servlet.Filter |
+| **FilterChain.java** | 过滤器链接口：`doFilter(request, response)`。 | ApplicationFilterChain |
+| **ApplicationFilterChain.java** | 过滤器链实现：按序调用 Filter，最后调用 Servlet。 | ApplicationFilterChain |
+| **FilterConfig.java** | Filter 配置：filterName、initParameter。 | javax.servlet.FilterConfig |
+| **FilterDef.java** | Filter 定义：name、filter 实例、urlPatterns、initParams；`matches(path)` 匹配 URL。 | FilterDef |
+| **CharsetFilter.java** | 示例 Filter：为响应补充 charset。 | 示例 |
+
+### 3.7 包：`minitomcat.servlet`
 
 | 文件 | 作用 | 对应 Tomcat |
 |------|------|-------------|
@@ -126,15 +139,15 @@
 
 ---
 
-### 3.7 包：`minitomcat.config`
+### 3.8 包：`minitomcat.config`
 
 | 文件 | 作用 | 对应 Tomcat |
 |------|------|-------------|
-| **WebXmlParser.java** | 简单 **web.xml** 解析：`<servlet>`、`<servlet-mapping>`、`<welcome-file-list>`；根据 servlet-class 反射创建 Servlet，按 url-pattern 创建 Wrapper 并加入 Context。 | 部署描述符解析 / ContextConfig 等 |
+| **WebXmlParser.java** | **web.xml** 解析：`<servlet>`、`<servlet-mapping>`、`<filter>`、`<filter-mapping>`、`<welcome-file-list>`、`<context-param>`、`<init-param>`；反射创建 Servlet/Filter，按 url-pattern 创建 Wrapper/FilterDef 并加入 Context。 | 部署描述符解析 / ContextConfig 等 |
 
 ---
 
-### 3.8 包：`minitomcat.lifecycle`
+### 3.9 包：`minitomcat.lifecycle`
 
 | 文件 | 作用 | 对应 Tomcat |
 |------|------|-------------|
@@ -142,7 +155,7 @@
 
 ---
 
-### 3.9 包：`minitomcat.jsp`
+### 3.10 包：`minitomcat.jsp`
 
 | 文件 | 作用 | 对应 Tomcat |
 |------|------|-------------|
@@ -163,6 +176,8 @@ mini_tomcat/
 │       ├── container/    Container, Pipeline, Valve, PipelineBase,
 │       │                  Engine, Host, Context, Wrapper   # 容器与管道
 │       ├── http/         Request, Response, HttpSession, SessionManager  # 请求/响应/会话
+│       ├── filter/        Filter, FilterChain, ApplicationFilterChain,
+│       │                  FilterConfig, FilterDef, CharsetFilter   # 过滤器
 │       ├── servlet/       Servlet, DefaultServlet           # Servlet 接口与默认实现
 │       ├── config/        WebXmlParser                      # web.xml 解析
 │       ├── lifecycle/     Lifecycle                         # 生命周期接口

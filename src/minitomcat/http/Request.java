@@ -3,6 +3,7 @@ package minitomcat.http;
 import minitomcat.container.Context;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -24,7 +25,8 @@ public class Request {
     private final Map<String, String> headers = new HashMap<>();
     private final Map<String, String> parameters = new HashMap<>();
     private final Map<String, Object> attributes = new HashMap<>();
-    private final InputStream inputStream;
+    private InputStream inputStream;
+    private byte[] postBody;  // POST 表单 body，解析后保留供 getInputStream 重放
 
     private String contextPath = "";
     private String servletPath = "";
@@ -63,6 +65,28 @@ public class Request {
                 String name = line.substring(0, colon).trim();
                 String value = line.substring(colon + 1).trim();
                 headers.put(name, value);
+            }
+        }
+
+        // POST 表单 body 解析（application/x-www-form-urlencoded）
+        if ("POST".equalsIgnoreCase(method)) {
+            String ct = headers.get("Content-Type");
+            if (ct != null && ct.toLowerCase().contains("application/x-www-form-urlencoded")) {
+                String cl = headers.get("Content-Length");
+                int len = -1;
+                if (cl != null) try { len = Integer.parseInt(cl.trim()); } catch (NumberFormatException ignored) {}
+                if (len > 0 && len <= 1024 * 1024) {  // 限制 1MB
+                    byte[] buf = new byte[len];
+                    int off = 0;
+                    while (off < len) {
+                        int n = inputStream.read(buf, off, len - off);
+                        if (n <= 0) break;
+                        off += n;
+                    }
+                    postBody = buf;
+                    String bodyStr = new String(buf, 0, off, StandardCharsets.UTF_8);
+                    parseQueryString(bodyStr);
+                }
             }
         }
     }
@@ -108,7 +132,10 @@ public class Request {
     public String getQueryString() { return queryString; }
     public String getProtocol() { return protocol; }
     public String getHeader(String name) { return headers.get(name); }
-    public InputStream getInputStream() { return inputStream; }
+    public InputStream getInputStream() {
+        if (postBody != null) return new ByteArrayInputStream(postBody);
+        return inputStream;
+    }
 
     public String getParameter(String name) { return parameters.get(name); }
     public Map<String, String> getParameterMap() { return Collections.unmodifiableMap(parameters); }

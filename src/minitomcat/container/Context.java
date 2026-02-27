@@ -1,8 +1,11 @@
 package minitomcat.container;
 
+import minitomcat.filter.ApplicationFilterChain;
+import minitomcat.filter.FilterDef;
 import minitomcat.http.Request;
 import minitomcat.http.Response;
 import minitomcat.http.SessionManager;
+import minitomcat.servlet.Servlet;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -21,7 +24,9 @@ public class Context implements Container {
     private String docBase;  // 应用根目录，用于静态资源与 welcome 文件
     private Container parent;
     private final List<Wrapper> wrappers = new ArrayList<>();
+    private final List<FilterDef> filterDefs = new ArrayList<>();
     private final List<String> welcomeFiles = new ArrayList<>();
+    private final java.util.Map<String, String> contextParams = new java.util.HashMap<>();
     private final SessionManager sessionManager = new SessionManager();
     private final Pipeline pipeline = new PipelineBase();
 
@@ -51,6 +56,11 @@ public class Context implements Container {
     }
 
     public SessionManager getSessionManager() { return sessionManager; }
+
+    public void addFilterDef(FilterDef fd) { filterDefs.add(fd); }
+    public List<FilterDef> getFilterDefs() { return filterDefs; }
+    public void setContextParam(String name, String value) { contextParams.put(name, value); }
+    public String getContextParam(String name) { return contextParams.get(name); }
 
     /** 根据相对路径获取资源流（从 docBase 读取），用于 DefaultServlet 等 */
     public InputStream getResourceAsStream(String path) throws IOException {
@@ -124,7 +134,14 @@ public class Context implements Container {
             }
             if (wrapper != null) {
                 request.setServletPath(pathInfo);
-                wrapper.invoke(request, response);
+                Servlet servlet = wrapper.getServlet();
+                final String pathForFilter = pathInfo;
+                var matching = context.getFilterDefs().stream()
+                        .filter(f -> f.matches(pathForFilter))
+                        .map(FilterDef::getFilter)
+                        .toList();
+                var chain = new ApplicationFilterChain(matching, servlet);
+                chain.doFilter(request, response);
             } else {
                 response.setStatus(404, "Not Found");
                 response.setBody("No servlet for: " + pathInfo);
