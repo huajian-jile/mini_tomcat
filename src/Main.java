@@ -21,7 +21,7 @@ public class Main {
         service.setName("Catalina");
 
         Connector connector = new Connector();
-        connector.setPort(9000);
+        connector.setPort(8000);
         service.addConnector(connector);
 
         Host host = new Host();
