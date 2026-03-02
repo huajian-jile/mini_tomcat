@@ -27,11 +27,11 @@ public class Main {
         Host host = new Host();
         host.setName("localhost");
 
+        // === ROOT 应用（静态资源）===
         Context context = new Context();
         context.setName("ROOT");
         context.setPath("/");
 
-        // 解析 webapp 目录：先试 user.dir，再试 class 所在目录的上级（兼容 IDE 从 out 启动）
         File webappDir = resolveWebappDir();
         if (webappDir != null && webappDir.isDirectory()) {
             String docBase = webappDir.getAbsolutePath();
@@ -47,7 +47,19 @@ public class Main {
             addDefaultWrapper(context);
         }
 
+        // 最后添加 minispring 的 servlet（更具体的路径）
+        try {
+            Wrapper apiWrapper = new Wrapper();
+            apiWrapper.setName("api");
+            apiWrapper.setUrlPattern("/api/*");
+            apiWrapper.setServlet(new minispring.servlet.MiniSpringServlet());
+            context.addWrapper(apiWrapper);
+            System.out.println("[Mini Tomcat] minispring 应用已部署到 /api");
+        } catch (Exception e) {
+            System.out.println("[Mini Tomcat] minispring 部署失败: " + e.getMessage());
+        }
         host.addContext(context);
+
         service.getEngine().addHost(host);
         server.addService(service);
 
@@ -57,9 +69,10 @@ public class Main {
             try { server.stop(); } catch (Exception e) { e.printStackTrace(); }
         }));
         System.out.println("Mini Tomcat started. Open http://localhost:9000/");
+        System.out.println("MiniSpring API: http://localhost:9000/api/user/list");
     }
 
-    /** 解析 webapp 目录，保证在 IDE（工作目录可能是 out）或命令行下都能找到 */
+    /** 解析 webapp 目录 */
     private static File resolveWebappDir() {
         File fromUserDir = Paths.get(System.getProperty("user.dir"), "webapp").toFile();
         if (fromUserDir.isDirectory()) return fromUserDir;

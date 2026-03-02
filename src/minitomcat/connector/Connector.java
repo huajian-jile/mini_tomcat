@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -91,11 +92,30 @@ public class Connector implements Lifecycle, Runnable {
             }
             response.flush();
         } catch (Exception e) {
-            e.printStackTrace();
+            if (!isClientDisconnect(e)) {
+                e.printStackTrace();
+            }
         } finally {
             try {
                 socket.close();
             } catch (IOException ignored) {}
         }
+    }
+
+    /** 客户端断开（刷新、关闭、取消）时抛出的异常，与 Tomcat 一致：静默处理，不打堆栈 */
+    private static boolean isClientDisconnect(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof SocketException) return true;
+            String msg = t.getMessage();
+            if (msg != null) {
+                String lower = msg.toLowerCase();
+                if (lower.contains("connection reset") || lower.contains("broken pipe")
+                        || lower.contains("connection aborted") || lower.contains("中止")
+                        || lower.contains("closed") || lower.contains("connection was")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

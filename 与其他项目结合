@@ -1,0 +1,17 @@
+区别如下：
+
+项目	服务器实现	端口	说明
+minispring 单独启动	JDK 内置的 com.sun.net.httpserver.HttpServer	8099	Java SE 自带的轻量级 HTTP 服务器
+mini_tomcat 启动	自定义 java.net.ServerSocket	9000	自己从头实现的 HTTP 服务器
+单独启动 minispring 的影响：
+
+可以正常运行，功能完全一样
+只是端口变成 8099
+使用 JDK 内置的 HTTP 服务器（简单但功能有限）
+mini_tomcat 启动：
+
+使用自定义的 ServerSocket
+完整的 Servlet 容器实现
+支持静态资源、Servlet、Filter 等
+可以部署多个应用
+现在 mini_tomcat 已经整合了 minispring，通过 /api/* 路径访问 minispring 的 API，其他路径访问静态资源。
