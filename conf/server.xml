@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Server>
+    <Service name="Catalina">
+        <Connector port="9000"/>
+        <Engine name="Catalina">
+            <Host name="localhost">
+                <!-- 通过 path 和 docBase 配置应用 -->
+                <!-- path: 访问路径（如 /api） -->
+                <!-- docBase: 应用目录或 WAR 包路径（可以是绝对路径或相对于 Tomcat 根目录的路径） -->
+
+                <!-- 示例1：配置 api 应用 -->
+                <Context path="/api" docBase="apps/api"/>
+
+                <!-- 示例2：配置 ROOT 应用（静态网站） -->
+                <Context path="/" docBase="apps/ROOT"/>
+            </Host>
+        </Engine>
+    </Service>
+</Server>
