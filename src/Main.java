@@ -32,7 +32,7 @@ public class Main {
         File confDir = resolveConfDir();
         File serverXml = new File(confDir, "server.xml");
         ServerXmlParser.ServerConfig serverConfig = new ServerXmlParser().parse(serverXml);
-        int port = 8080;
+        int port = 8099;
         if (!serverConfig.services.isEmpty()) {
             port = serverConfig.services.get(0).port;
         }
