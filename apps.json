@@ -1,0 +1,10 @@
+[
+    {
+        "path": "/",
+        "docBase": "apps/ROOT"
+    },
+    {
+        "path": "/api",
+        "docBase": "apps/api"
+    }
+]

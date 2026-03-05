@@ -52,17 +52,22 @@ public class Host implements Container {
             String path = uri.contains("?") ? uri.substring(0, uri.indexOf('?')) : uri;
             Context matched = null;
             String contextPath = "";
+            // 选择最长匹配
             for (Context ctx : host.getContexts()) {
                 String cp = ctx.getPath();
-                if ("/".equals(cp) && path.startsWith("/")) {
-                    matched = ctx;
-                    contextPath = "/";
-                    break;
-                }
                 if (path.equals(cp) || path.startsWith(cp + "/")) {
-                    if (cp.length() >= contextPath.length()) {
+                    if (cp.length() > contextPath.length()) {
                         matched = ctx;
                         contextPath = cp;
+                    }
+                }
+            }
+            // 如果没有匹配到，使用 ROOT ("/")
+            if (matched == null) {
+                for (Context ctx : host.getContexts()) {
+                    if ("/".equals(ctx.getPath())) {
+                        matched = ctx;
+                        break;
                     }
                 }
             }

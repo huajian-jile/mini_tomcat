@@ -149,11 +149,15 @@ public class Context implements Container {
         }
 
         private boolean matchPattern(String pattern, String path) {
-            if ("/".equals(pattern)) return path.startsWith("/");
+            // "/" 只匹配 "/" 本身，不匹配子路径
+            if ("/".equals(pattern)) return "/".equals(path);
             if (pattern.equals(path)) return true;
             if (pattern.endsWith("/*")) {
-                String prefix = pattern.substring(0, pattern.length() - 1);
-                return path.startsWith(prefix) && (path.length() == prefix.length() || path.charAt(prefix.length()) == '/');
+                // 去掉 /* 后再去掉末尾的 /
+                String prefix = pattern.substring(0, pattern.length() - 2);
+                if (prefix.endsWith("/")) prefix = prefix.substring(0, prefix.length() - 1);
+                boolean result = path.startsWith(prefix) && (path.length() == prefix.length() || path.charAt(prefix.length()) == '/');
+                return result;
             }
             return false;
         }
